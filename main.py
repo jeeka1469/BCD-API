@@ -1,4 +1,4 @@
-
+import joblib
 import os
 import pickle
 import uvicorn
@@ -81,7 +81,7 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
                     # Try different pickle protocols
                     try:
                         model_data = io.BytesIO(model_response)
-                        model = pickle.load(model_data)
+                        model = joblib.load(model_path)
                         print("Model loaded successfully using BytesIO")
                     except Exception as pickle_error:
                         print(f"Failed to load with BytesIO: {str(pickle_error)}")
@@ -120,7 +120,7 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
                 # Try BytesIO first
                 try:
                     scaler_data = io.BytesIO(scaler_response)
-                    scaler = pickle.load(scaler_data)
+                    model = joblib.load(scaler_path)
                     print("Scaler loaded successfully using BytesIO")
                 except Exception as pickle_error:
                     print(f"Failed to load scaler with BytesIO: {str(pickle_error)}")
