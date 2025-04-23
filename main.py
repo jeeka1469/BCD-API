@@ -9,6 +9,7 @@ from typing import List, Dict, Union, Optional
 import numpy as np
 from supabase import create_client, Client
 import traceback
+import io
 
 app = FastAPI(title="Breast Cancer Prediction API")
 
@@ -74,11 +75,19 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
             
             print(f"Model saved to {model_path}, file size: {os.path.getsize(model_path)} bytes")
             
-            # Load model with error handling
+            # Load model with error handling and protocol specification
             try:
                 with open(model_path, 'rb') as f:
-                    model = pickle.load(f)
-                print("Model loaded successfully")
+                    # Try different pickle protocols
+                    try:
+                        model_data = io.BytesIO(model_response)
+                        model = pickle.load(model_data)
+                        print("Model loaded successfully using BytesIO")
+                    except Exception as pickle_error:
+                        print(f"Failed to load with BytesIO: {str(pickle_error)}")
+                        # Fall back to file-based loading
+                        model = pickle.load(f)
+                        print("Model loaded successfully using file")
             except Exception as e:
                 print(f"Error loading model: {str(e)}")
                 traceback.print_exc()
@@ -106,11 +115,19 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
                 
             print(f"Scaler saved to {scaler_path}, file size: {os.path.getsize(scaler_path)} bytes")
             
-            # Load scaler with error handling
+            # Load scaler with error handling and protocol specification
             try:
-                with open(scaler_path, 'rb') as f:
-                    scaler = pickle.load(f)
-                print("Scaler loaded successfully")
+                # Try BytesIO first
+                try:
+                    scaler_data = io.BytesIO(scaler_response)
+                    scaler = pickle.load(scaler_data)
+                    print("Scaler loaded successfully using BytesIO")
+                except Exception as pickle_error:
+                    print(f"Failed to load scaler with BytesIO: {str(pickle_error)}")
+                    # Fall back to file-based loading
+                    with open(scaler_path, 'rb') as f:
+                        scaler = pickle.load(f)
+                        print("Scaler loaded successfully using file")
             except Exception as e:
                 print(f"Error loading scaler: {str(e)}")
                 traceback.print_exc()
@@ -151,7 +168,8 @@ async def predict(input_data: PredictionInput):
             # For development only, provide a mock prediction if model loading fails
             return {
                 "prediction": "Benign" if np.random.rand() > 0.5 else "Malignant",
-                "probability": float(np.random.rand() * 0.3 + 0.7)  # 70-100% confidence
+                "probability": float(np.random.rand() * 0.3 + 0.7),  # 70-100% confidence
+                "isMock": True
             }
     
     try:
