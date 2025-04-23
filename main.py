@@ -1,6 +1,5 @@
-import joblib
 import os
-import pickle
+import joblib
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +39,7 @@ class PredictionInput(BaseModel):
 class PredictionOutput(BaseModel):
     prediction: str
     probability: float
+    isMock: Optional[bool] = None
 
 @app.on_event("startup")
 async def startup_db_client():
@@ -65,9 +65,6 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
             
             print(f"Model data size: {len(model_response)} bytes")
             
-            if len(model_response) < 500:  # If it's suspiciously small
-                print(f"Warning: Model file might be too small ({len(model_response)} bytes)")
-            
             # Write to temp file 
             model_path = '/tmp/model.pkl'
             with open(model_path, 'wb') as f:
@@ -75,19 +72,11 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
             
             print(f"Model saved to {model_path}, file size: {os.path.getsize(model_path)} bytes")
             
-            # Load model with error handling and protocol specification
+            # Load model with joblib
             try:
-                with open(model_path, 'rb') as f:
-                    # Try different pickle protocols
-                    try:
-                        model_data = io.BytesIO(model_response)
-                        model = joblib.load(model_path)
-                        print("Model loaded successfully using BytesIO")
-                    except Exception as pickle_error:
-                        print(f"Failed to load with BytesIO: {str(pickle_error)}")
-                        # Fall back to file-based loading
-                        model = pickle.load(f)
-                        print("Model loaded successfully using file")
+                model = joblib.load(io.BytesIO(model_response))
+                print("Model loaded successfully")
+                print(f"Model type: {type(model).__name__}")
             except Exception as e:
                 print(f"Error loading model: {str(e)}")
                 traceback.print_exc()
@@ -105,9 +94,6 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
             
             print(f"Scaler data size: {len(scaler_response)} bytes")
             
-            if len(scaler_response) < 500:  # If it's suspiciously small
-                print(f"Warning: Scaler file might be too small ({len(scaler_response)} bytes)")
-            
             # Write to temp file
             scaler_path = '/tmp/scaler.pkl'
             with open(scaler_path, 'wb') as f:
@@ -115,19 +101,11 @@ def download_and_load_model(bucket_name: str, model_file: str, scaler_file: str)
                 
             print(f"Scaler saved to {scaler_path}, file size: {os.path.getsize(scaler_path)} bytes")
             
-            # Load scaler with error handling and protocol specification
+            # Load scaler with joblib
             try:
-                # Try BytesIO first
-                try:
-                    scaler_data = io.BytesIO(scaler_response)
-                    model = joblib.load(scaler_path)
-                    print("Scaler loaded successfully using BytesIO")
-                except Exception as pickle_error:
-                    print(f"Failed to load scaler with BytesIO: {str(pickle_error)}")
-                    # Fall back to file-based loading
-                    with open(scaler_path, 'rb') as f:
-                        scaler = pickle.load(f)
-                        print("Scaler loaded successfully using file")
+                scaler = joblib.load(io.BytesIO(scaler_response))
+                print("Scaler loaded successfully")
+                print(f"Scaler type: {type(scaler).__name__}")
             except Exception as e:
                 print(f"Error loading scaler: {str(e)}")
                 traceback.print_exc()
